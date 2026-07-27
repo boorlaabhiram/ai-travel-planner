@@ -1,0 +1,6 @@
+{
+  "name": "WL Wanderlust Travel",
+  "description": "Stylish travel blog & AI route engine recommending hotels, food, vehicles, petrol/diesel stations, shopping malls, flights, weather, and itineraries in Indian Rupees (₹).",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
