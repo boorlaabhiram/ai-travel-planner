@@ -82,6 +82,7 @@ export interface FuelStation {
 
 export interface FlightOption {
   id: string;
+  name?: string;
   airline: string;
   airlineLogo: string;
   flightNumber: string;
