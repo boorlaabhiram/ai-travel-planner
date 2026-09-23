@@ -112,11 +112,16 @@ export interface WeatherInfo {
 }
 
 export interface RouteWaypoint {
+  id?: string;
   name: string;
   lat: number;
   lng: number;
-  type: 'origin' | 'destination' | 'hotel' | 'food' | 'scenic' | 'fuel' | 'mall';
+  type: 'origin' | 'destination' | 'hotel' | 'food' | 'scenic' | 'fuel' | 'mall' | 'airport' | 'bus_station' | 'train_station' | 'tourist_attraction' | 'custom_pin' | 'user_location';
   description?: string;
+  address?: string;
+  rating?: number;
+  photoUrl?: string;
+  openHours?: string;
 }
 
 export interface ItineraryDay {

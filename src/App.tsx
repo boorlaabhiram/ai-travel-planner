@@ -3,6 +3,7 @@ import { Navbar } from './components/Navbar';
 import logoImg from './assets/images/wanderlust_logo_1784986231866.jpg';
 import { GoogleLoginModal } from './components/GoogleLoginModal';
 import { TripPlannerForm } from './components/TripPlannerForm';
+import { InteractiveMap } from './components/InteractiveMap';
 import { HotelCard } from './components/HotelCard';
 import { VehicleCard } from './components/VehicleCard';
 import { FoodCard } from './components/FoodCard';
@@ -34,6 +35,8 @@ import {
   ShieldCheck,
   Heart,
   Sparkles,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 
 export default function App() {
@@ -51,6 +54,7 @@ export default function App() {
   const [currentTrip, setCurrentTrip] = useState<TripPlanResult | null>(PRESET_TRIPS['miami-keywest']);
   const [isLoadingTrip, setIsLoadingTrip] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
+  const [tripError, setTripError] = useState<string | null>(null);
   const [activeRecTab, setActiveRecTab] = useState<
     'hotels' | 'vehicles' | 'food' | 'malls' | 'fuel' | 'flights' | 'weather' | 'itinerary' | 'blog'
   >('hotels');
@@ -91,27 +95,63 @@ export default function App() {
 
   // Generate Trip API Call
   const handleGenerateTrip = async (req: TripRequest) => {
+    // Prevent duplicate requests
+    if (isLoadingTrip) return;
+
     setIsLoadingTrip(true);
+    setTripError(null);
     setLoadingStep('Analyzing route & Google Maps distances...');
 
-    try {
-      setTimeout(() => setLoadingStep('Fetching hotel availability & ratings...'), 800);
-      setTimeout(() => setLoadingStep('Calculating vehicle fuel & rental rates...'), 1600);
-      setTimeout(() => setLoadingStep('Checking destination weather forecast...'), 2400);
+    const stepTimers = [
+      setTimeout(() => setLoadingStep('Fetching hotel availability & ratings...'), 800),
+      setTimeout(() => setLoadingStep('Calculating vehicle fuel & rental rates...'), 1600),
+      setTimeout(() => setLoadingStep('Checking destination weather forecast...'), 2400),
+    ];
 
+    try {
       const response = await fetch('/api/plan-trip', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(req),
       });
 
-      const data = await response.json();
-      if (data.success && data.trip) {
-        setCurrentTrip(data.trip);
+      const contentType = response.headers.get('content-type') || '';
+
+      if (!response.ok) {
+        let message = `Trip generation failed (${response.status})`;
+
+        if (contentType.includes('application/json')) {
+          const errorData = await response.json();
+          message = errorData.error || message;
+        } else {
+          const text = await response.text();
+          console.error('API returned non-JSON:', text);
+        }
+
+        throw new Error(message);
       }
-    } catch (err) {
+
+      if (!contentType.includes('application/json')) {
+        throw new Error('The trip API returned an invalid response.');
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Trip generation failed.');
+      }
+
+      if (data.trip) {
+        setCurrentTrip(data.trip);
+        setTripError(null);
+      }
+    } catch (err: any) {
       console.error('Trip generation error:', err);
+      setTripError(err.message || 'Trip generation failed. Please try again.');
     } finally {
+      stepTimers.forEach(clearTimeout);
       setIsLoadingTrip(false);
       setLoadingStep('');
     }
@@ -190,6 +230,23 @@ export default function App() {
               loadingStep={loadingStep}
             />
 
+            {tripError && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-800 px-5 py-4 rounded-2xl flex items-center justify-between gap-3 text-sm font-medium animate-in fade-in">
+                <div className="flex items-center gap-2.5">
+                  <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                  <span>{tripError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTripError(null)}
+                  className="text-rose-500 hover:text-rose-700 cursor-pointer p-1 rounded-lg hover:bg-rose-100 transition-colors"
+                  aria-label="Dismiss error"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             {/* Trip Results Dashboard */}
             {currentTrip && (
               <div className="space-y-8">
@@ -252,6 +309,18 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+
+                {/* Interactive Map & Places Engine */}
+                <InteractiveMap
+                  waypoints={currentTrip.waypoints}
+                  routePolylineCoords={currentTrip.routePolylineCoords}
+                  googleDirectionsUrl={currentTrip.googleDirectionsUrl}
+                  origin={currentTrip.origin}
+                  destination={currentTrip.destination}
+                  onWaypointsChange={(updated) => {
+                    setCurrentTrip((prev) => prev ? { ...prev, waypoints: updated } : null);
+                  }}
+                />
 
                 {/* Recommendations Navigation Tabs */}
                 <div className="bg-white rounded-2xl p-2 border border-slate-200 shadow-xs flex items-center gap-1.5 overflow-x-auto no-scrollbar">
